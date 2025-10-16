@@ -2,12 +2,12 @@ import mujoco as mj
 from mujoco.glfw import glfw
 from scipy.spatial.transform import Rotation
 
+from model import predict
+
 import numpy as np
 import os
 
 ENVIRONMENT_PATH = 'environment.xml'
-
-simend = 15 #simulation time
 
 # For callback functions
 button_left = False
@@ -16,18 +16,50 @@ button_right = False
 lastx = 0
 lasty = 0
 
-floorRotX = 0
-floorRotY = 0
-
 def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
     pass
 
+loop_num = 0
+prediction = []
 def controller(model, data):
+    global prediction, loop_num
+
     #put the controller here. This function is called inside the simulation.
-    model.geom('floor').quat = Rotation.from_euler('xyz', [90, 45, 30], degrees=True).as_quat()
-    model.geom('floor').quat = [1, 1, 0, 0]
-    print(model.geom('floor').quat)
+    vel = data.sensor('speed').data
+    rot = data.sensor('rotation').data
+
+    #model inputs
+    ball_x = data.qpos[2]
+    ball_y = data.qpos[3]
+
+    ball_xvel = vel[0]
+    ball_yvel = vel[1]
+
+    floor_xrot = rot[0]
+    floor_yrot = rot[1]
+
+    #predict
+    if loop_num % 100 == 0:
+        prediction = predict([ball_x, ball_y, ball_xvel, ball_yvel, floor_xrot, floor_yrot], epsilon=1)
+    loop_num+=1
+
+    data.ctrl = prediction
+
+    #debugging
+    # print('-'*50)
+    # print(f'Ball Speed:')
+    # print(f'   X -> {ball_xvel}')
+    # print(f'   Y -> {ball_yvel}')
+    # print()
+    # print("Ball Pos:")
+    # print(f'   X -> {ball_x}')
+    # print(f'   Y -> {ball_y}')
+    # print()
+    # print("Platform Angle:")
+    # print(f'   X -> {floor_xrot}')
+    # print(f'   Y -> {floor_yrot}')
+    # print('-'*50)
 
 def keyboard(window, key, scancode, act, mods):
     if act == glfw.PRESS and key == glfw.KEY_BACKSPACE:
@@ -96,7 +128,7 @@ def mouse_move(window, xpos, ypos):
 
 def scroll(window, xoffset, yoffset):
     action = mj.mjtMouse.mjMOUSE_ZOOM
-    mj.mjv_moveCamera(model, action, 0.0, -0.05 *
+    mj.mjv_moveCamera(model, action, 0.0, 0.05 *
                     yoffset, scene, cam)
 
 def run_simulation():
