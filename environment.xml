@@ -1,10 +1,29 @@
 <mujoco>
 	<worldbody>
         <light diffuse=".5 .5 .5" pos="0 0 3" dir="0 0 -1"/>
-		<geom name="floor" type="box" size="1 1 0.01" rgba=".9 0 0 1" euler="1 0 0"/>
+		
+		 <!-- Base -->
+		<body name="base" pos="0 0 0">
+			<!-- Pitch joint -->
+			<joint name="pitch" type="hinge" axis="1 0 0" limited="true" range="-30 30"/>
+			
+			<!-- Roll joint -->
+			<joint name="roll" type="hinge" axis="0 1 0" limited="true" range="-30 30"/>
+
+			<!-- The platform -->
+			<body name="platform" pos="0 0 0.2">
+				<geom name="plate" type="box" size="0.3 0.3 0.02" rgba="0.3 0.3 0.7 1"/>
+			</body>
+		</body>
+
 		<body name="ball" pos="0 0 1">
 			<joint type="free"/>
 			<geom type="sphere" size=".1 .2 .3" rgba="0 .9 0 1"/>
 		</body>
 	</worldbody>
+
+	<actuator>
+		<motor name="pitch_motor" joint="pitch" ctrlrange="-1 1" gear="1"/>
+		<motor name="roll_motor" joint="roll" ctrlrange="-1 1" gear="1"/>
+  	</actuator>
 </mujoco>
