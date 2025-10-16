@@ -14,13 +14,16 @@ button_right = False
 lastx = 0
 lasty = 0
 
+floorRotX = 0
+floorRotY = 0
+
 def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
     pass
 
 def controller(model, data):
     #put the controller here. This function is called inside the simulation.
-    pass
+    print(model.geom('floor'))
 
 def keyboard(window, key, scancode, act, mods):
     if act == glfw.PRESS and key == glfw.KEY_BACKSPACE:
