@@ -137,12 +137,12 @@ def mouse_move(window, xpos, ypos):
     mod_shift = (PRESS_LEFT_SHIFT or PRESS_RIGHT_SHIFT)
 
     # determine action based on mouse button
-    if button_right:
+    if button_left:
         if mod_shift:
             action = mj.mjtMouse.mjMOUSE_MOVE_H
         else:
             action = mj.mjtMouse.mjMOUSE_MOVE_V
-    elif button_left:
+    elif button_right:
         if mod_shift:
             action = mj.mjtMouse.mjMOUSE_ROTATE_H
         else:
