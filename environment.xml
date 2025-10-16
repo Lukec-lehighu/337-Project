@@ -20,7 +20,7 @@
 		<body name="ball" pos="0 0 1">
 			<joint type="free"/>
 			<site name="VEL"/>
-			<geom type="sphere" size=".1 .2 .3" rgba="0 .9 0 1"/>
+			<geom type="sphere" size=".1 .1 .1" rgba="0 .9 0 1"/>
 		</body>
 	</worldbody>
 

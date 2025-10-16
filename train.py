@@ -5,9 +5,16 @@ from scipy.spatial.transform import Rotation
 from model import predict
 
 import numpy as np
+import math
 import os
 
 ENVIRONMENT_PATH = 'environment.xml'
+
+NUM_EPISODES = 1000
+MAX_STEPS = 200
+
+MIN_DISTANCE_FOR_FINISH = 0.01
+TARGET_SPEED_FOR_FINISH = 0.1
 
 # For callback functions
 button_left = False
@@ -16,18 +23,26 @@ button_right = False
 lastx = 0
 lasty = 0
 
+isDone = False
+reward = 0
+
+#for model inputs (where we want the ball to go)
+target_x = 0
+target_y = 0
+
 def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
+    # TODO: init/load model
     pass
 
 loop_num = 0
 prediction = []
 def controller(model, data):
-    global prediction, loop_num
+    global prediction, loop_num, isDone, reward
 
     #put the controller here. This function is called inside the simulation.
-    vel = data.sensor('speed').data
-    rot = data.sensor('rotation').data
+    vel = data.sensor('speed').data.copy()
+    rot = data.sensor('rotation').data.copy()
 
     #model inputs
     ball_x = data.qpos[2]
@@ -41,10 +56,22 @@ def controller(model, data):
 
     #predict
     if loop_num % 100 == 0:
-        prediction = predict([ball_x, ball_y, ball_xvel, ball_yvel, floor_xrot, floor_yrot], epsilon=1)
+        prediction = predict([target_x, target_y, ball_x, ball_y, ball_xvel, ball_yvel, floor_xrot, floor_yrot], epsilon=1) # random prediction
     loop_num+=1
 
     data.ctrl = prediction
+
+    #calculate reward
+    distance_to_target = math.dist([target_x, target_y], [ball_x, ball_y])
+
+    reward = -distance_to_target
+
+    #calculate if is done
+    if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
+        reward -= 100 #punish the model for misbehaving
+        isDone = True
+
+    # TODO: set isDone=True if the ball gets close to the target and isn't moving fast (high reward)
 
     #debugging
     # print('-'*50)
@@ -131,37 +158,54 @@ def scroll(window, xoffset, yoffset):
     mj.mjv_moveCamera(model, action, 0.0, 0.05 *
                     yoffset, scene, cam)
 
-def run_simulation():
+def render():
+    # get framebuffer viewport
+    viewport_width, viewport_height = glfw.get_framebuffer_size(
+        window)
+    viewport = mj.MjrRect(0, 0, viewport_width, viewport_height)
+
+    # Update scene and render
+    mj.mjv_updateScene(model, data, opt, None, cam,
+                    mj.mjtCatBit.mjCAT_ALL.value, scene)
+    mj.mjr_render(viewport, scene, context)
+
+    # swap OpenGL buffers (blocking call due to v-sync)
+    glfw.swap_buffers(window)
+
+def train():
+    global isDone
+
     #initialize the controller
     init_controller(model,data)
 
     #set the controller
     mj.set_mjcb_control(controller)
 
-    while not glfw.window_should_close(window):
-        time_prev = data.time
+    for episode in range(NUM_EPISODES):
+        mj.mj_resetData(model, data)
 
-        while (data.time - time_prev < 1.0/60.0):
-            mj.mj_step(model, data)
+        total_reward = 0
+        isDone = False
 
-        # if (data.time>=simend):
-        #     break
+        if glfw.window_should_close(window):
+            break
 
-        # get framebuffer viewport
-        viewport_width, viewport_height = glfw.get_framebuffer_size(
-            window)
-        viewport = mj.MjrRect(0, 0, viewport_width, viewport_height)
+        for step in range(MAX_STEPS):
+            time_prev = data.time
+            while (data.time - time_prev < 1.0/60.0):
+                mj.mj_step(model, data)
+            
+            total_reward += reward # reward is set when in mj.mj_step (controller)
 
-        # Update scene and render
-        mj.mjv_updateScene(model, data, opt, None, cam,
-                        mj.mjtCatBit.mjCAT_ALL.value, scene)
-        mj.mjr_render(viewport, scene, context)
+            if isDone:
+                break
 
-        # swap OpenGL buffers (blocking call due to v-sync)
-        glfw.swap_buffers(window)
+            render()
 
-        # process pending GUI events, call GLFW callbacks
-        glfw.poll_events()
+            # process pending GUI events, call GLFW callbacks
+            glfw.poll_events()
+
+        print(f'[+] Total reward for episode {episode}: {total_reward}')
 
     glfw.terminate()
 
@@ -190,4 +234,4 @@ glfw.set_mouse_button_callback(window, mouse_button)
 glfw.set_scroll_callback(window, scroll)
 
 if __name__=='__main__':
-    run_simulation()
+    train()
