@@ -1,5 +1,7 @@
 import mujoco as mj
 from mujoco.glfw import glfw
+from scipy.spatial.transform import Rotation
+
 import numpy as np
 import os
 
@@ -23,7 +25,9 @@ def init_controller(model,data):
 
 def controller(model, data):
     #put the controller here. This function is called inside the simulation.
-    print(model.geom('floor'))
+    model.geom('floor').quat = Rotation.from_euler('xyz', [90, 45, 30], degrees=True).as_quat()
+    model.geom('floor').quat = [1, 1, 0, 0]
+    print(model.geom('floor').quat)
 
 def keyboard(window, key, scancode, act, mods):
     if act == glfw.PRESS and key == glfw.KEY_BACKSPACE:
