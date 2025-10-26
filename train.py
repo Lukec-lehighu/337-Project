@@ -12,6 +12,8 @@ ENVIRONMENT_PATH = 'environment.xml'
 NUM_EPISODES = 1000
 MAX_STEPS = 200
 
+EPSILON = 0.2
+
 MIN_DISTANCE_FOR_FINISH = 0.01
 TARGET_SPEED_FOR_FINISH = 0.1
 
@@ -30,6 +32,22 @@ action = []
 #for model inputs (where we want the ball to go)
 target_x = 0
 target_y = 0
+
+#for model outputs
+move_force = 5
+
+def get_ctrl_for_pred(action):
+    if action == 0:
+        return [move_force, 0]
+    if action == 1:
+        return [-move_force, 0]
+    if action == 2:
+        return [0, move_force]
+    if action == 3:
+        return [0, -move_force]
+    if action == 4:
+        return [0,0]
+    return None
 
 def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
@@ -65,10 +83,10 @@ def controller(model, data):
     
     #predict
     if loop_num % 100 == 0:
-        action = predict(state, epsilon=1) # random prediction
+        action = np.array(predict(state, epsilon=EPSILON)).argmax() # random prediction
     loop_num+=1
 
-    data.ctrl = action
+    data.ctrl = get_ctrl_for_pred(action)
 
     #calculate reward
     distance_to_target = math.dist([target_x, target_y], [state[2], state[3]])
