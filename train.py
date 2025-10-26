@@ -1,8 +1,7 @@
 import mujoco as mj
 from mujoco.glfw import glfw
-from scipy.spatial.transform import Rotation
 
-from model import predict
+from model import predict, replay_buffer, train_dqn
 
 import numpy as np
 import math
@@ -25,6 +24,8 @@ lasty = 0
 
 isDone = False
 reward = 0
+state = []
+action = []
 
 #for model inputs (where we want the ball to go)
 target_x = 0
@@ -32,15 +33,14 @@ target_y = 0
 
 def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
-    # TODO: init/load model
+    # TODO: init/load RL model
     pass
 
-loop_num = 0
-prediction = []
-def controller(model, data):
-    global prediction, loop_num, isDone, reward
+def get_state(data):
+    '''
+        Get the current state and return it to the main code
+    '''
 
-    #put the controller here. This function is called inside the simulation.
     vel = data.sensor('speed').data.copy()
     rot = data.sensor('rotation').data.copy()
 
@@ -54,15 +54,24 @@ def controller(model, data):
     floor_xrot = rot[0]
     floor_yrot = rot[1]
 
+    return [target_x, target_y, ball_x, ball_y, ball_xvel, ball_yvel, floor_xrot, floor_yrot]
+
+loop_num = 0
+prediction = []
+def controller(model, data):
+    global prediction, loop_num, isDone, reward, state, action
+
+    state = get_state(data)
+    
     #predict
     if loop_num % 100 == 0:
-        prediction = predict([target_x, target_y, ball_x, ball_y, ball_xvel, ball_yvel, floor_xrot, floor_yrot], epsilon=1) # random prediction
+        action = predict(state, epsilon=1) # random prediction
     loop_num+=1
 
-    data.ctrl = prediction
+    data.ctrl = action
 
     #calculate reward
-    distance_to_target = math.dist([target_x, target_y], [ball_x, ball_y])
+    distance_to_target = math.dist([target_x, target_y], [state[2], state[3]])
 
     reward = -distance_to_target
 
@@ -194,6 +203,10 @@ def train():
             time_prev = data.time
             while (data.time - time_prev < 1.0/60.0):
                 mj.mj_step(model, data)
+                next_state = get_state(data)
+                
+                replay_buffer.append((state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
+                train_dqn()
             
             total_reward += reward # reward is set when in mj.mj_step (controller)
 
@@ -210,10 +223,10 @@ def train():
     glfw.terminate()
 
 # MuJoCo data structures
-model = mj.MjModel.from_xml_path(ENVIRONMENT_PATH)  # MuJoCo model
-data = mj.MjData(model)                # MuJoCo data
-cam = mj.MjvCamera()                        # Abstract camera
-opt = mj.MjvOption()                        # visualization options
+model = mj.MjModel.from_xml_path(ENVIRONMENT_PATH)   # MuJoCo model
+data = mj.MjData(model)                              # MuJoCo data
+cam = mj.MjvCamera()                                 # Abstract camera
+opt = mj.MjvOption()                                 # visualization options
 
 # Init GLFW, create window, make OpenGL context current, request v-sync
 glfw.init()
