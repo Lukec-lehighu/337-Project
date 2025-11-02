@@ -3,6 +3,7 @@ from mujoco.glfw import glfw
 
 from model import predict, replay_buffer, train_dqn
 
+import matplotlib.pyplot as plt
 import numpy as np
 import math
 import os
@@ -12,10 +13,16 @@ ENVIRONMENT_PATH = 'environment.xml'
 NUM_EPISODES = 1000
 MAX_STEPS = 200
 
-EPSILON = 0.2
+EPSILON = 0.1
 
-MIN_DISTANCE_FOR_FINISH = 0.01
+MAX_X = [-0.7,0.7]
+MAX_Y = [-0.7,0.7]
+
+MIN_DISTANCE_FOR_FINISH = 0.1
 TARGET_SPEED_FOR_FINISH = 0.1
+
+#for model outputs
+move_force = 5
 
 # For callback functions
 button_left = False
@@ -28,13 +35,11 @@ isDone = False
 reward = 0
 state = []
 action = []
+last_dist = 10000
 
 #for model inputs (where we want the ball to go)
 target_x = 0
 target_y = 0
-
-#for model outputs
-move_force = 5
 
 def get_ctrl_for_pred(action):
     if action == 0:
@@ -51,8 +56,14 @@ def get_ctrl_for_pred(action):
 
 def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
-    # TODO: init/load RL model
     pass
+
+def reset(data):
+    #set random start location for the ball
+    global last_dist
+    data.qpos[2] = np.random.uniform(MAX_X[0], MAX_X[1])
+    data.qpos[3] = np.random.uniform(MAX_Y[0], MAX_Y[1])
+    last_dist = 10000
 
 def get_state(data):
     '''
@@ -77,13 +88,13 @@ def get_state(data):
 loop_num = 0
 prediction = []
 def controller(model, data):
-    global prediction, loop_num, isDone, reward, state, action
+    global prediction, loop_num, isDone, reward, state, action, last_dist
 
     state = get_state(data)
     
     #predict
-    if loop_num % 100 == 0:
-        action = np.array(predict(state, epsilon=EPSILON)).argmax() # random prediction
+    if loop_num % 50 == 0:
+        action = predict(state, epsilon=EPSILON) # random prediction
     loop_num+=1
 
     data.ctrl = get_ctrl_for_pred(action)
@@ -92,13 +103,22 @@ def controller(model, data):
     distance_to_target = math.dist([target_x, target_y], [state[2], state[3]])
 
     reward = -distance_to_target
+    
+    if last_dist - distance_to_target > 0: #prioritize moving towards the goal, punish moving away
+        reward += 10
+    else:
+        reward -= 10
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
         reward -= 100 #punish the model for misbehaving
         isDone = True
 
-    # TODO: set isDone=True if the ball gets close to the target and isn't moving fast (high reward)
+    if distance_to_target < MIN_DISTANCE_FOR_FINISH and math.dist([state[4], state[5]], [0,0]):
+        reward += 200
+        isDone = True
+
+    last_dist = distance_to_target
 
     #debugging
     # print('-'*50)
@@ -207,9 +227,11 @@ def train():
 
     #set the controller
     mj.set_mjcb_control(controller)
+    rewards = []
 
     for episode in range(NUM_EPISODES):
         mj.mj_resetData(model, data)
+        reset(data) # set up random start location and such
 
         total_reward = 0
         isDone = False
@@ -237,8 +259,12 @@ def train():
             glfw.poll_events()
 
         print(f'[+] Total reward for episode {episode}: {total_reward}')
+        rewards.append(total_reward)
 
     glfw.terminate()
+
+    plt.plot(rewards)
+    plt.show()
 
 # MuJoCo data structures
 model = mj.MjModel.from_xml_path(ENVIRONMENT_PATH)   # MuJoCo model

@@ -9,7 +9,7 @@ import random
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 state_dim = 8
-n_actions = 5
+n_actions = 5 # move -x, x, -y, y, or no action
 
 gamma = 0.99
 alpha = 0.001
@@ -61,13 +61,10 @@ def train_dqn():
 
 def predict(state, epsilon=0):
     if random.random() < epsilon:
-        p = random.randrange(0, n_actions)
-        pred = np.zeros((n_actions,))
-        pred[p] = 1
-        return pred
+        return random.randint(0, n_actions-1)
     else:
         state_tensor = torch.FloatTensor(state).to(device).unsqueeze(0)
         with torch.no_grad():
-            q_values = q_net(state_tensor)
+            q_values = q_net(state_tensor).cpu()
             return int(np.argmax(q_values))
     
