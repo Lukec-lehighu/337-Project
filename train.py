@@ -13,8 +13,9 @@ ENVIRONMENT_PATH = 'environment.xml'
 NUM_EPISODES = 1000
 MAX_STEPS = 200
 
-EPSILON = 0.1
+EPSILON = 0.2
 
+# for random spawning
 MAX_X = [-0.7,0.7]
 MAX_Y = [-0.7,0.7]
 
@@ -22,7 +23,7 @@ MIN_DISTANCE_FOR_FINISH = 0.1
 TARGET_SPEED_FOR_FINISH = 0.1
 
 #for model outputs
-move_force = 5
+move_force = 7
 
 # For callback functions
 button_left = False
@@ -36,10 +37,19 @@ reward = 0
 state = []
 action = []
 last_dist = 10000
+loop_num = 0
 
 #for model inputs (where we want the ball to go)
 target_x = 0
 target_y = 0
+
+#for debugging
+def print_state(state):
+    os.system('cls')
+    print(f"Target: {state[0]}, {state[1]}")
+    print(f"Ball loc: {state[2]}, {state[3]}")
+    print(f"Ball vel: {state[4]}, {state[5]}")
+    print(f"Platform rotation: {state[6]}, {state[7]}")
 
 def get_ctrl_for_pred(action):
     if action == 0:
@@ -60,32 +70,32 @@ def init_controller(model,data):
 
 def reset(data):
     #set random start location for the ball
-    global last_dist
+    global last_dist, loop_num
     data.qpos[2] = np.random.uniform(MAX_X[0], MAX_X[1])
     data.qpos[3] = np.random.uniform(MAX_Y[0], MAX_Y[1])
     last_dist = 10000
+
+    loop_num = 0
 
 def get_state(data):
     '''
         Get the current state and return it to the main code
     '''
 
-    vel = data.sensor('speed').data.copy()
     rot = data.sensor('rotation').data.copy()
 
     #model inputs
-    ball_x = data.qpos[2]
-    ball_y = data.qpos[3]
+    ball_x = data.qpos[2] / 1.5 # "normalize" somewhat
+    ball_y = data.qpos[3] / 1.5
 
-    ball_xvel = vel[0]
-    ball_yvel = vel[1]
+    ball_xvel = data.qvel[2]
+    ball_yvel = data.qvel[3]
 
     floor_xrot = rot[0]
     floor_yrot = rot[1]
 
     return [target_x, target_y, ball_x, ball_y, ball_xvel, ball_yvel, floor_xrot, floor_yrot]
 
-loop_num = 0
 prediction = []
 def controller(model, data):
     global prediction, loop_num, isDone, reward, state, action, last_dist
@@ -93,7 +103,7 @@ def controller(model, data):
     state = get_state(data)
     
     #predict
-    if loop_num % 50 == 0:
+    if loop_num % 20 == 0:
         action = predict(state, epsilon=EPSILON) # random prediction
     loop_num+=1
 
@@ -104,36 +114,22 @@ def controller(model, data):
 
     reward = -distance_to_target
     
-    if last_dist - distance_to_target > 0: #prioritize moving towards the goal, punish moving away
-        reward += 10
-    else:
-        reward -= 10
+    if loop_num != 0:
+        reward += 1000*(last_dist - distance_to_target) #prioritize moving towards the goal, punish moving away
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
-        reward -= 100 #punish the model for misbehaving
+        reward -= 500 #punish the model for misbehaving
         isDone = True
+    else:
+        reward += 10 # reward staying on the platform
 
-    if distance_to_target < MIN_DISTANCE_FOR_FINISH and math.dist([state[4], state[5]], [0,0]):
-        reward += 200
+    if distance_to_target < MIN_DISTANCE_FOR_FINISH and math.dist([state[4], state[5]], [0,0]) <= TARGET_SPEED_FOR_FINISH:
+        reward += 300
         isDone = True
 
     last_dist = distance_to_target
 
-    #debugging
-    # print('-'*50)
-    # print(f'Ball Speed:')
-    # print(f'   X -> {ball_xvel}')
-    # print(f'   Y -> {ball_yvel}')
-    # print()
-    # print("Ball Pos:")
-    # print(f'   X -> {ball_x}')
-    # print(f'   Y -> {ball_y}')
-    # print()
-    # print("Platform Angle:")
-    # print(f'   X -> {floor_xrot}')
-    # print(f'   Y -> {floor_yrot}')
-    # print('-'*50)
 
 def keyboard(window, key, scancode, act, mods):
     if act == glfw.PRESS and key == glfw.KEY_BACKSPACE:
@@ -245,8 +241,9 @@ def train():
                 mj.mj_step(model, data)
                 next_state = get_state(data)
                 
+                print_state(state)
                 replay_buffer.append((state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
-                train_dqn()
+                #train_dqn()
             
             total_reward += reward # reward is set when in mj.mj_step (controller)
 

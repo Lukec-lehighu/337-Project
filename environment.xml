@@ -30,7 +30,6 @@
   	</actuator>
 
 	<sensor>
-		<velocimeter name="speed" site="VEL"/>
 		<gyro name="rotation" site="IMU"/>
 	</sensor>
 </mujoco>
