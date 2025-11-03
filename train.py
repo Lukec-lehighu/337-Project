@@ -108,20 +108,19 @@ def controller(model, data):
 
     #calculate reward
     distance_to_target = math.dist([target_x, target_y], [state[2], state[3]])
+    ball_speed = math.dist([state[4], state[5]], [0,0])
 
     reward = -distance_to_target
-    
-    if loop_num != 0:
-        reward += 1000*(last_dist - distance_to_target) #prioritize moving towards the goal, punish moving away
+    reward -= ball_speed # slower ball is better ball
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
-        reward -= 1000 #punish the model for misbehaving
+        reward -= 300 #punish the model for misbehaving
         isDone = True
     else:
         reward += 2 # reward staying on the platform
 
-    if distance_to_target < MIN_DISTANCE_FOR_FINISH and math.dist([state[4], state[5]], [0,0]) <= TARGET_SPEED_FOR_FINISH:
+    if distance_to_target < MIN_DISTANCE_FOR_FINISH and ball_speed <= TARGET_SPEED_FOR_FINISH:
         reward += 300
         isDone = True
 
