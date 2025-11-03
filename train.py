@@ -23,7 +23,7 @@ MIN_DISTANCE_FOR_FINISH = 0.1
 TARGET_SPEED_FOR_FINISH = 0.1
 
 #for model outputs
-move_force = 7
+move_force = 10
 
 # For callback functions
 button_left = False
@@ -82,8 +82,6 @@ def get_state(data):
         Get the current state and return it to the main code
     '''
 
-    rot = data.sensor('rotation').data.copy()
-
     #model inputs
     ball_x = data.qpos[2] / 1.5 # "normalize" somewhat
     ball_y = data.qpos[3] / 1.5
@@ -91,10 +89,10 @@ def get_state(data):
     ball_xvel = data.qvel[2]
     ball_yvel = data.qvel[3]
 
-    floor_xrot = rot[0]
-    floor_yrot = rot[1]
+    floor_rotx = data.sensor('plat_rx').data.copy()[0]
+    floor_roty = data.sensor('plat_ry').data.copy()[0]
 
-    return [target_x, target_y, ball_x, ball_y, ball_xvel, ball_yvel, floor_xrot, floor_yrot]
+    return [target_x, target_y, ball_x, ball_y, ball_xvel, ball_yvel, floor_rotx, floor_roty]
 
 prediction = []
 def controller(model, data):
@@ -103,8 +101,7 @@ def controller(model, data):
     state = get_state(data)
     
     #predict
-    if loop_num % 20 == 0:
-        action = predict(state, epsilon=EPSILON) # random prediction
+    action = predict(state, epsilon=EPSILON) # random prediction
     loop_num+=1
 
     data.ctrl = get_ctrl_for_pred(action)
@@ -119,10 +116,10 @@ def controller(model, data):
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
-        reward -= 500 #punish the model for misbehaving
+        reward -= 1000 #punish the model for misbehaving
         isDone = True
     else:
-        reward += 10 # reward staying on the platform
+        reward += 2 # reward staying on the platform
 
     if distance_to_target < MIN_DISTANCE_FOR_FINISH and math.dist([state[4], state[5]], [0,0]) <= TARGET_SPEED_FOR_FINISH:
         reward += 300
@@ -241,9 +238,9 @@ def train():
                 mj.mj_step(model, data)
                 next_state = get_state(data)
                 
-                print_state(state)
+                #print_state(state)
                 replay_buffer.append((state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
-                #train_dqn()
+                train_dqn()
             
             total_reward += reward # reward is set when in mj.mj_step (controller)
 

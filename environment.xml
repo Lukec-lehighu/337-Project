@@ -12,14 +12,12 @@
 
 			<!-- The platform -->
 			<body name="platform" pos="0 0 0.2" euler="0 0 0">
-				<site name="IMU"/>
 				<geom name="plate" type="box" size="1 1 0.02" rgba="0.3 0.3 0.7 1"/>
 			</body>
 		</body>
 
 		<body name="ball" pos="0 0 1">
 			<joint type="free"/>
-			<site name="VEL"/>
 			<geom type="sphere" size=".1 .1 .1" rgba="0 .9 0 1"/>
 		</body>
 	</worldbody>
@@ -30,6 +28,7 @@
   	</actuator>
 
 	<sensor>
-		<gyro name="rotation" site="IMU"/>
+		<jointpos name="plat_rx" joint="pitch"/>
+		<jointpos name="plat_ry" joint="roll"/>
 	</sensor>
 </mujoco>
