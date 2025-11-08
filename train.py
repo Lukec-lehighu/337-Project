@@ -1,7 +1,7 @@
 import mujoco as mj
 from mujoco.glfw import glfw
 
-from model import predict, replay_buffer, train_dqn
+from model import predict, replay_buffer, train_dqn, SEQ_LEN
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -95,13 +95,21 @@ def get_state(data):
     return [target_x, target_y, ball_x, ball_y, ball_xvel, ball_yvel, floor_rotx, floor_roty]
 
 prediction = []
+states = []
+next_states = []
 def controller(model, data):
     global prediction, loop_num, isDone, reward, state, action, last_dist
+    global states
 
     state = get_state(data)
+    states.append(state)
+    if len(states) < SEQ_LEN:
+        return
+    elif len(states) > SEQ_LEN:
+        states.pop(0) #get rid of oldest entry
     
     #predict
-    action = predict(state, epsilon=EPSILON) # random prediction
+    action = predict(states, epsilon=EPSILON) # random prediction
     loop_num+=1
 
     data.ctrl = get_ctrl_for_pred(action)
@@ -212,7 +220,7 @@ def render():
     glfw.swap_buffers(window)
 
 def train():
-    global isDone
+    global isDone, states, next_states
 
     #initialize the controller
     init_controller(model,data)
@@ -236,9 +244,16 @@ def train():
             while (data.time - time_prev < 1.0/60.0):
                 mj.mj_step(model, data)
                 next_state = get_state(data)
-                
-                #print_state(state)
-                replay_buffer.append((state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
+
+            next_states.append(next_state)
+            if len(next_states) < SEQ_LEN:
+                continue
+            elif len(next_states) > SEQ_LEN:
+                next_states.pop(0) #get rid of oldest entry
+
+            #print_state(state)
+            if len(states) == SEQ_LEN:
+                replay_buffer.append((states.copy(), action, reward, next_states, isDone)) #replay buffer is in model.py
                 train_dqn()
             
             total_reward += reward # reward is set when in mj.mj_step (controller)

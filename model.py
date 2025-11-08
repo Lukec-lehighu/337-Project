@@ -1,14 +1,17 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.autograd import Variable
 import numpy as np
 
 from collections import deque
 import random
 
+SEQ_LEN = 30
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-state_dim = 8
+state_dim = 8 # targetx, targety, ballx, bally, ballxvel, ballyvel, floorrotx, floorroty
 n_actions = 5 # move -x, x, -y, y, or no action
 
 gamma = 0.99
@@ -22,16 +25,25 @@ replay_buffer_size = 50000
 class QNetwork(nn.Module):
     def __init__(self, state_dim, n_actions):
         super(QNetwork, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
-        self.fc4 = nn.Linear(64, n_actions)
+        self.hidden_size = 64
+        self.num_layers = 2
+
+        self.lstm = nn.LSTM(state_dim, self.hidden_size, num_layers=self.num_layers, batch_first=True)
+        self.fc1 = nn.Linear(64, 64)
+        self.fc2 = nn.Linear(64, n_actions)
+
+        self.hidden = (torch.zeros(self.num_layers, 1, self.hidden_size),
+                       torch.zeros(self.num_layers, 1, self.hidden_size))
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        x = torch.relu(self.fc3(x))
-        return self.fc4(x)
+        h0 = torch.zeros(self.num_layers, x.size(
+                0), self.hidden_size).to(device)
+        c0 = torch.zeros(self.num_layers, x.size(
+            0), self.hidden_size).to(device)
+
+        output = torch.relu(self.lstm(x, (h0, c0))[0][:, -1, :])
+        x = torch.relu(self.fc1(output))
+        return self.fc2(x)
 
 # Initialize Q-network and optimizer
 q_net = QNetwork(state_dim, n_actions).to(device)
@@ -65,7 +77,8 @@ def predict(state, epsilon=0):
     if random.random() < epsilon:
         return random.randint(0, n_actions-1)
     else:
-        state_tensor = torch.FloatTensor(state).to(device).unsqueeze(0)
+        state = np.reshape(state, (1, SEQ_LEN, state_dim))
+        state_tensor = torch.FloatTensor(state).to(device)
         with torch.no_grad():
             q_values = q_net(state_tensor).cpu()
             return int(np.argmax(q_values))
