@@ -10,7 +10,7 @@ import os
 
 ENVIRONMENT_PATH = 'environment.xml'
 
-NUM_EPISODES = 1000
+NUM_EPISODES = 8000
 MAX_STEPS = 200
 
 EPSILON = 0.2
@@ -23,7 +23,7 @@ MIN_DISTANCE_FOR_FINISH = 0.1
 TARGET_SPEED_FOR_FINISH = 0.1
 
 #for model outputs
-move_force = 10
+move_force = 7
 
 # For callback functions
 button_left = False
@@ -120,6 +120,7 @@ def controller(model, data):
 
     reward = -distance_to_target
     reward -= ball_speed # slower ball is better ball
+    reward += loop_num/100 # higher loop num -> more time spent on platform
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(

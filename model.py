@@ -7,30 +7,30 @@ import numpy as np
 from collections import deque
 import random
 
-SEQ_LEN = 30
+SEQ_LEN = 40
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 state_dim = 8 # targetx, targety, ballx, bally, ballxvel, ballyvel, floorrotx, floorroty
 n_actions = 5 # move -x, x, -y, y, or no action
 
-gamma = 0.99
-alpha = 0.001
-epsilon = 0.1
+gamma = 1
+alpha = 0.01
+epsilon = 0.15 #chance that a random action is taken
 num_episodes = 200
 batch_size = 64
-replay_buffer_size = 50000
+replay_buffer_size = 80000
 
 # Define Q-Network
 class QNetwork(nn.Module):
     def __init__(self, state_dim, n_actions):
         super(QNetwork, self).__init__()
-        self.hidden_size = 64
+        self.hidden_size = 128
         self.num_layers = 2
 
         self.lstm = nn.LSTM(state_dim, self.hidden_size, num_layers=self.num_layers, batch_first=True)
-        self.fc1 = nn.Linear(64, 64)
-        self.fc2 = nn.Linear(64, n_actions)
+        self.fc1 = nn.Linear(128, 128)
+        self.fc2 = nn.Linear(128, n_actions)
 
         self.hidden = (torch.zeros(self.num_layers, 1, self.hidden_size),
                        torch.zeros(self.num_layers, 1, self.hidden_size))
