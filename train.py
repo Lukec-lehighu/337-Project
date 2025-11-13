@@ -11,7 +11,7 @@ import os
 ENVIRONMENT_PATH = 'environment.xml'
 
 NUM_EPISODES = 1000
-MAX_STEPS = 200
+MAX_STEPS = 700
 
 EPSILON = 0.2
 
@@ -22,8 +22,11 @@ MAX_Y = [-0.7,0.7]
 MIN_DISTANCE_FOR_FINISH = 0.1
 TARGET_SPEED_FOR_FINISH = 0.1
 
+MAX_TILT = 15 # max number of degrees that the platform can tilt (prevent runaway values in target rotation)
+
 #for model outputs
-move_force = 10
+move_speed = 0.1
+platform_rot = np.zeros((2,))
 
 # For callback functions
 button_left = False
@@ -46,23 +49,21 @@ target_y = 0
 #for debugging
 def print_state(state):
     os.system('cls')
-    print(f"Target: {state[0]}, {state[1]}")
-    print(f"Ball loc: {state[2]}, {state[3]}")
-    print(f"Ball vel: {state[4]}, {state[5]}")
-    print(f"Platform rotation: {state[6]}, {state[7]}")
+    print(f"Ball loc: {state[0]}, {state[1]}")
+    print(f"Ball vel: {state[2]}, {state[3]}")
 
 def get_ctrl_for_pred(action):
+    global platform_rot
     if action == 0:
-        return [move_force, 0]
-    if action == 1:
-        return [-move_force, 0]
-    if action == 2:
-        return [0, move_force]
-    if action == 3:
-        return [0, -move_force]
-    if action == 4:
-        return [0,0]
-    return None
+        platform_rot += np.array([move_speed, 0])
+    elif action == 1:
+        platform_rot += np.array([-move_speed, 0])
+    elif action == 2:
+        platform_rot += np.array([0, move_speed])
+    elif action == 3:
+        platform_rot += np.array([0, -move_speed])
+
+    platform_rot = np.clip(platform_rot, -MAX_TILT, MAX_TILT)
 
 def init_controller(model,data):
     #initialize the controller here. This function is called once, in the beginning
@@ -70,10 +71,12 @@ def init_controller(model,data):
 
 def reset(data):
     #set random start location for the ball
-    global last_dist, loop_num
+    global last_dist, loop_num, platform_rot
     data.qpos[2] = np.random.uniform(MAX_X[0], MAX_X[1])
     data.qpos[3] = np.random.uniform(MAX_Y[0], MAX_Y[1])
     last_dist = 10000
+
+    platform_rot = np.zeros((2,)) # reset platform target rotation
 
     loop_num = 0
 
@@ -89,10 +92,7 @@ def get_state(data):
     ball_xvel = data.qvel[2]
     ball_yvel = data.qvel[3]
 
-    floor_rotx = data.sensor('plat_rx').data.copy()[0]
-    floor_roty = data.sensor('plat_ry').data.copy()[0]
-
-    return [target_x, target_y, ball_x, ball_y, ball_xvel, ball_yvel, floor_rotx, floor_roty]
+    return [ball_x, ball_y, ball_xvel, ball_yvel]
 
 prediction = []
 def controller(model, data):
@@ -104,13 +104,14 @@ def controller(model, data):
     action = predict(state, epsilon=EPSILON) # random prediction
     loop_num+=1
 
-    data.ctrl = get_ctrl_for_pred(action)
+    get_ctrl_for_pred(action) # update platform_rot (target rotation)
+    data.ctrl = [np.deg2rad(platform_rot[0]), np.deg2rad(platform_rot[1])]
 
     #calculate reward
-    distance_to_target = math.dist([target_x, target_y], [state[2], state[3]])
-    ball_speed = math.dist([state[4], state[5]], [0,0])
+    distance_to_target = math.dist([target_x, target_y], [state[0], state[1]])
+    ball_speed = math.dist([state[2], state[3]], [0,0])
 
-    reward = -distance_to_target
+    reward = -(distance_to_target**2)
     reward -= ball_speed # slower ball is better ball
 
     #calculate if is done
@@ -237,9 +238,9 @@ def train():
                 mj.mj_step(model, data)
                 next_state = get_state(data)
                 
-                #print_state(state)
-                replay_buffer.append((state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
-                train_dqn()
+            print_state(state)
+            replay_buffer.append((state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
+            train_dqn()
             
             total_reward += reward # reward is set when in mj.mj_step (controller)
 

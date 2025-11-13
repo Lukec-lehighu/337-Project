@@ -23,8 +23,8 @@
 	</worldbody>
 
 	<actuator>
-		<motor name="pitch_motor" joint="pitch" gear="40"/>
-		<motor name="roll_motor" joint="roll" gear="40"/>
+		<position name="pitch_motor" joint="pitch" kp="5000" kv="1000"/>
+  		<position name="roll_motor"  joint="roll" kp="5000" kv="1000"/>
   	</actuator>
 
 	<sensor>
