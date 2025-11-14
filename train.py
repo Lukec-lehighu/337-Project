@@ -238,7 +238,7 @@ def train():
                 mj.mj_step(model, data)
                 next_state = get_state(data)
                 
-            print_state(state)
+            #print_state(state)
             replay_buffer.append((state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
             train_dqn()
             
