@@ -13,11 +13,14 @@ ENVIRONMENT_PATH = 'environment.xml'
 NUM_EPISODES = 1000
 MAX_STEPS = 700
 
-EPSILON = 0.2
+EPSILON = 0.1
 
 # for random spawning
 MAX_X = [-0.7,0.7]
 MAX_Y = [-0.7,0.7]
+
+MAX_X = [0.4,0.4]
+MAX_Y = [0.4,0.4]
 
 MIN_DISTANCE_FOR_FINISH = 0.1
 TARGET_SPEED_FOR_FINISH = 0.1
@@ -234,7 +237,7 @@ def train():
 
         for step in range(MAX_STEPS):
             time_prev = data.time
-            while (data.time - time_prev < 1.0/60.0):
+            while (data.time - time_prev < 6.0/60.0):
                 mj.mj_step(model, data)
                 next_state = get_state(data)
                 
@@ -247,7 +250,8 @@ def train():
             if isDone:
                 break
 
-            render()
+            if episode % 10 == 0:
+                render()
 
             # process pending GUI events, call GLFW callbacks
             glfw.poll_events()
