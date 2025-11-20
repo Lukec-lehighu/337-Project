@@ -39,7 +39,8 @@ lastx = 0
 lasty = 0
 
 isDone = False
-reward = 0
+old_state = []
+action_took = False
 state = []
 action = []
 last_dist = 10000
@@ -97,7 +98,9 @@ def get_state(data):
 
     return [ball_x, ball_y, ball_xvel, ball_yvel]
 
-def updateReward():
+def calcReward(state):
+    global isDone, last_dist
+
      #calculate reward
     distance_to_target = math.dist([target_x, target_y], [state[0], state[1]])
     ball_speed = math.dist([state[2], state[3]], [0,0])
@@ -117,21 +120,24 @@ def updateReward():
         isDone = True
 
     last_dist = distance_to_target
+    return reward
 
 prediction = []
 def controller(model, data):
-    global prediction, loop_num, isDone, reward, state, action, last_dist
+    global prediction, loop_num, isDone, state, action, old_state
 
-    state = get_state(data)
-    
-    #predict
-    action = predict(state, epsilon=EPSILON) # random prediction
-    loop_num+=1
+    if not action_took:
+        state = get_state(data)
+        old_state = state.copy()
+        
+        #predict
+        action = predict(state, epsilon=EPSILON) # random prediction
+        loop_num+=1
 
-    get_ctrl_for_pred(action) # update platform_rot (target rotation)
-    data.ctrl = [np.deg2rad(platform_rot[0]), np.deg2rad(platform_rot[1])]
+        get_ctrl_for_pred(action) # update platform_rot (target rotation)
+        data.ctrl = [np.deg2rad(platform_rot[0]), np.deg2rad(platform_rot[1])]
 
-   
+        action_took = True
 
 
 def keyboard(window, key, scancode, act, mods):
@@ -219,7 +225,7 @@ def render():
     glfw.swap_buffers(window)
 
 def train():
-    global isDone
+    global isDone, action_took
 
     #initialize the controller
     init_controller(model,data)
@@ -242,16 +248,21 @@ def train():
             time_prev = data.time
             while (data.time - time_prev < 1.0/60.0):
                 mj.mj_step(model, data)
-                next_state = get_state(data)
+
+            next_state = get_state(data)
+            reward = calcReward(next_state)
                 
             #print_state(state)
-            replay_buffer.append((state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
+            replay_buffer.append((old_state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
             train_dqn()
             
             total_reward += reward # reward is set when in mj.mj_step (controller)
 
             if isDone:
                 break
+
+            # tell the model it can take another action
+            action_took = False
 
             if episode % 10 == 0:
                 render()
