@@ -97,20 +97,8 @@ def get_state(data):
 
     return [ball_x, ball_y, ball_xvel, ball_yvel]
 
-prediction = []
-def controller(model, data):
-    global prediction, loop_num, isDone, reward, state, action, last_dist
-
-    state = get_state(data)
-    
-    #predict
-    action = predict(state, epsilon=EPSILON) # random prediction
-    loop_num+=1
-
-    get_ctrl_for_pred(action) # update platform_rot (target rotation)
-    data.ctrl = [np.deg2rad(platform_rot[0]), np.deg2rad(platform_rot[1])]
-
-    #calculate reward
+def updateReward():
+     #calculate reward
     distance_to_target = math.dist([target_x, target_y], [state[0], state[1]])
     ball_speed = math.dist([state[2], state[3]], [0,0])
 
@@ -129,6 +117,21 @@ def controller(model, data):
         isDone = True
 
     last_dist = distance_to_target
+
+prediction = []
+def controller(model, data):
+    global prediction, loop_num, isDone, reward, state, action, last_dist
+
+    state = get_state(data)
+    
+    #predict
+    action = predict(state, epsilon=EPSILON) # random prediction
+    loop_num+=1
+
+    get_ctrl_for_pred(action) # update platform_rot (target rotation)
+    data.ctrl = [np.deg2rad(platform_rot[0]), np.deg2rad(platform_rot[1])]
+
+   
 
 
 def keyboard(window, key, scancode, act, mods):
@@ -237,7 +240,7 @@ def train():
 
         for step in range(MAX_STEPS):
             time_prev = data.time
-            while (data.time - time_prev < 6.0/60.0):
+            while (data.time - time_prev < 1.0/60.0):
                 mj.mj_step(model, data)
                 next_state = get_state(data)
                 

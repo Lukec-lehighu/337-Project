@@ -22,9 +22,9 @@ replay_buffer_size = 50000
 class QNetwork(nn.Module):
     def __init__(self, state_dim, n_actions):
         super(QNetwork, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, n_actions)
+        self.fc1 = nn.Linear(state_dim, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, n_actions)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
