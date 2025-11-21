@@ -124,7 +124,7 @@ def calcReward(state):
 
 prediction = []
 def controller(model, data):
-    global prediction, loop_num, isDone, state, action, old_state
+    global prediction, loop_num, isDone, state, action, old_state, action_took
 
     if not action_took:
         state = get_state(data)
