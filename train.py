@@ -10,7 +10,7 @@ import os
 
 ENVIRONMENT_PATH = 'environment.xml'
 
-NUM_EPISODES = 1000
+NUM_EPISODES = 5000
 MAX_STEPS = 700
 
 EPSILON = 0.1
@@ -246,7 +246,7 @@ def train():
 
         for step in range(MAX_STEPS):
             time_prev = data.time
-            while (data.time - time_prev < 1.0/60.0):
+            while (data.time - time_prev < 4.0/60.0):
                 mj.mj_step(model, data)
 
             next_state = get_state(data)

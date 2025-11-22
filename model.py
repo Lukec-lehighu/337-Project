@@ -13,8 +13,6 @@ n_actions = 5 # move -x, x, -y, y, or no action
 
 gamma = 0.99
 alpha = 0.001
-epsilon = 0.1
-num_episodes = 200
 batch_size = 64
 replay_buffer_size = 50000
 
