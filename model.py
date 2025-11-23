@@ -13,8 +13,8 @@ n_actions = 5 # move -x, x, -y, y, or no action
 
 gamma = 0.99
 alpha = 0.001
-batch_size = 64
-replay_buffer_size = 50000
+batch_size = 32
+replay_buffer_size = 5000
 
 # Define Q-Network
 class QNetwork(nn.Module):

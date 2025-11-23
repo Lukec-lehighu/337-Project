@@ -28,7 +28,7 @@ TARGET_SPEED_FOR_FINISH = 0.1
 MAX_TILT = 15 # max number of degrees that the platform can tilt (prevent runaway values in target rotation)
 
 #for model outputs
-move_speed = 0.1
+move_speed = 0.05
 platform_rot = np.zeros((2,))
 
 # For callback functions
@@ -246,7 +246,7 @@ def train():
 
         for step in range(MAX_STEPS):
             time_prev = data.time
-            while (data.time - time_prev < 4.0/60.0):
+            while (data.time - time_prev < 2.0/60.0):
                 mj.mj_step(model, data)
 
             next_state = get_state(data)
