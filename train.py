@@ -19,11 +19,11 @@ EPSILON = 0.1
 MAX_X = [-0.7,0.7]
 MAX_Y = [-0.7,0.7]
 
-MAX_X = [0.4,0.4]
-MAX_Y = [0.4,0.4]
+MAX_X = [-0.4,0.4]
+MAX_Y = [-0.4,0.4]
 
-MIN_DISTANCE_FOR_FINISH = 0.1
-TARGET_SPEED_FOR_FINISH = 0.1
+MIN_DISTANCE_FOR_FINISH = 0.03
+TARGET_SPEED_FOR_FINISH = 0.03
 
 MAX_TILT = 15 # max number of degrees that the platform can tilt (prevent runaway values in target rotation)
 
@@ -43,7 +43,6 @@ old_state = []
 action_took = False
 state = []
 action = []
-last_dist = 10000
 loop_num = 0
 
 #for model inputs (where we want the ball to go)
@@ -75,10 +74,9 @@ def init_controller(model,data):
 
 def reset(data):
     #set random start location for the ball
-    global last_dist, loop_num, platform_rot
+    global loop_num, platform_rot
     data.qpos[2] = np.random.uniform(MAX_X[0], MAX_X[1])
     data.qpos[3] = np.random.uniform(MAX_Y[0], MAX_Y[1])
-    last_dist = 10000
 
     platform_rot = np.zeros((2,)) # reset platform target rotation
 
@@ -96,17 +94,25 @@ def get_state(data):
     ball_xvel = data.qvel[2]
     ball_yvel = data.qvel[3]
 
-    return [ball_x, ball_y, ball_xvel, ball_yvel]
+    floor_rotx = data.sensor('plat_rx').data.copy()[0]
+    floor_roty = data.sensor('plat_ry').data.copy()[0]
 
-def calcReward(state):
-    global isDone, last_dist
+    return [ball_x, ball_y, ball_xvel, ball_yvel, floor_rotx, floor_roty]
+
+def calcReward(state, last_state):
+    global isDone
+
+    pos = np.array([state[0], state[1]])
+    lastpos = np.array([last_state[0], last_state[1]])
+    target = np.array([target_x, target_y])
 
      #calculate reward
-    distance_to_target = math.dist([target_x, target_y], [state[0], state[1]])
+    distance_to_target = math.dist(target, pos)
     ball_speed = math.dist([state[2], state[3]], [0,0])
 
     reward = -(distance_to_target**2)
     reward -= ball_speed # slower ball is better ball
+    reward += 10 * (math.dist(lastpos, target) - math.dist(pos, target)) # reward getting closer to the target
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
@@ -119,7 +125,6 @@ def calcReward(state):
         reward += 300
         isDone = True
 
-    last_dist = distance_to_target
     return reward
 
 prediction = []
@@ -225,7 +230,7 @@ def render():
     glfw.swap_buffers(window)
 
 def train():
-    global isDone, action_took
+    global isDone, action_took, action
 
     #initialize the controller
     init_controller(model,data)
@@ -250,10 +255,10 @@ def train():
                 mj.mj_step(model, data)
 
             next_state = get_state(data)
-            reward = calcReward(next_state)
-                
+            reward = calcReward(state=next_state, last_state=state)
+            
             #print_state(state)
-            replay_buffer.append((old_state.copy(), action, reward, next_state, isDone)) #replay buffer is in model.py
+            replay_buffer.append((old_state.copy(), action, reward, next_state.copy(), isDone)) #replay buffer is in model.py
             train_dqn()
             
             total_reward += reward # reward is set when in mj.mj_step (controller)

@@ -8,7 +8,7 @@ import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-state_dim = 4
+state_dim = 6
 n_actions = 5 # move -x, x, -y, y, or no action
 
 gamma = 0.99
