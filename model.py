@@ -5,6 +5,9 @@ import numpy as np
 
 from collections import deque
 import random
+import os
+
+MODEL_PATH = 'balance.pt'
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -14,7 +17,7 @@ n_actions = 5 # move -x, x, -y, y, or no action
 gamma = 0.99
 alpha = 0.001
 batch_size = 32
-replay_buffer_size = 5000
+replay_buffer_size = 10000
 
 # Define Q-Network
 class QNetwork(nn.Module):
@@ -34,6 +37,21 @@ q_net = QNetwork(state_dim, n_actions).to(device)
 optimizer = optim.Adam(q_net.parameters(), lr=alpha)
 loss_fn = nn.MSELoss()
 replay_buffer = deque(maxlen=replay_buffer_size)
+
+def load_model():
+    if os.path.exists(MODEL_PATH):
+        checkpoint = torch.load(MODEL_PATH, weights_only=True)
+        q_net.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        q_net.train()
+        print("Model loaded!")
+
+def save_model():
+    torch.save({
+        'model_state_dict': q_net.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict()
+    }, MODEL_PATH)
+    print('Model saved!')
 
 def train_dqn():
     """Train the DQN using experience replay."""

@@ -1,7 +1,7 @@
 import mujoco as mj
 from mujoco.glfw import glfw
 
-from model import predict, replay_buffer, train_dqn
+from model import predict, replay_buffer, train_dqn, load_model, save_model
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -235,6 +235,9 @@ def train():
     #initialize the controller
     init_controller(model,data)
 
+    #prep model by loading from disk
+    load_model()
+
     #set the controller
     mj.set_mjcb_control(controller)
     rewards = []
@@ -277,6 +280,9 @@ def train():
 
         print(f'[+] Total reward for episode {episode}: {total_reward}')
         rewards.append(total_reward)
+
+    #save model
+    save_model()
 
     glfw.terminate()
 
