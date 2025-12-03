@@ -22,8 +22,8 @@ MAX_Y = [-0.7,0.7]
 MAX_X = [-0.4,0.4]
 MAX_Y = [-0.4,0.4]
 
-MIN_DISTANCE_FOR_FINISH = 0.03
-TARGET_SPEED_FOR_FINISH = 0.03
+MIN_DISTANCE_FOR_FINISH = 0.01
+TARGET_SPEED_FOR_FINISH = 0.01
 
 MAX_TILT = 15 # max number of degrees that the platform can tilt (prevent runaway values in target rotation)
 
@@ -112,7 +112,7 @@ def calcReward(state, last_state):
 
     reward = -(distance_to_target**2)
     reward -= ball_speed # slower ball is better ball
-    reward += 10 * (math.dist(lastpos, target) - math.dist(pos, target)) # reward getting closer to the target
+    reward += 30 * (math.dist(lastpos, target) - math.dist(pos, target)) # reward getting closer to the target
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(

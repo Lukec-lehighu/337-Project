@@ -40,7 +40,7 @@ replay_buffer = deque(maxlen=replay_buffer_size)
 
 def load_model():
     if os.path.exists(MODEL_PATH):
-        checkpoint = torch.load(MODEL_PATH, weights_only=True)
+        checkpoint = torch.load(MODEL_PATH, weights_only=True, map_location=device)
         q_net.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         q_net.train()
