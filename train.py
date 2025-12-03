@@ -8,6 +8,7 @@ import numpy as np
 import math
 import os
 
+TRAIN_MODE = False
 ENVIRONMENT_PATH = 'environment.xml'
 
 NUM_EPISODES = 5000
@@ -20,10 +21,13 @@ E_DECAY = 0.05
 MAX_X = [-0.7,0.7]
 MAX_Y = [-0.7,0.7]
 
-MIN_DISTANCE_FOR_FINISH = 0.02
-TARGET_SPEED_FOR_FINISH = 0.02
+MIN_DISTANCE_FOR_FINISH = 0.03
+TARGET_SPEED_FOR_FINISH = 0.01
 
 MAX_TILT = 15 # max number of degrees that the platform can tilt (prevent runaway values in target rotation)
+
+if not TRAIN_MODE:
+    EPSILON = 0
 
 #for model outputs
 move_speed_slow = 0.05 # two different types of move speeds
@@ -123,20 +127,20 @@ def calcReward(state, last_state):
     distance_to_target = math.dist(target, pos)
     ball_speed = math.dist([state[2], state[3]], [0,0])
 
-    reward = -(distance_to_target**2)
+    reward = -distance_to_target
     reward -= ball_speed # slower ball is better ball
-    reward += 30 * (math.dist(lastpos, target) - math.dist(pos, target)) # reward getting closer to the target
+    reward += 10 * (math.dist(lastpos, target) - math.dist(pos, target)) # reward getting closer to the target
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
-        reward -= 5000 #punish the model for misbehaving
+        reward -= 300 #punish the model for misbehaving
         isDone = True
         agent_status = 'Failure'
     else:
         reward += 2 # reward staying on the platform
 
     if distance_to_target < MIN_DISTANCE_FOR_FINISH and ball_speed <= TARGET_SPEED_FOR_FINISH:
-        reward += 1000
+        reward += 500
         isDone = True
         agent_status = 'Success!'
 
@@ -257,49 +261,76 @@ def train():
     mj.set_mjcb_control(controller)
     rewards = []
 
-    for episode in range(NUM_EPISODES):
-        mj.mj_resetData(model, data)
-        reset(data) # set up random start location and such
+    if TRAIN_MODE:
+        for episode in range(NUM_EPISODES):
+            mj.mj_resetData(model, data)
+            reset(data) # set up random start location and such
 
-        total_reward = 0
-        isDone = False
+            total_reward = 0
+            isDone = False
 
-        if glfw.window_should_close(window):
-            break
-
-        for step in range(MAX_STEPS):
-            time_prev = data.time
-            while (data.time - time_prev < 2.0/60.0):
-                mj.mj_step(model, data)
-
-            next_state = get_state(data)
-            reward = calcReward(state=next_state, last_state=state)
-            
-            #print_state(state)
-            replay_buffer.append((old_state.copy(), action, reward, next_state.copy(), isDone)) #replay buffer is in model.py
-            train_dqn()
-            
-            total_reward += reward # reward is set when in mj.mj_step (controller)
-
-            if isDone:
+            if glfw.window_should_close(window):
                 break
 
-            # tell the model it can take another action
-            action_took = False
+            for step in range(MAX_STEPS):
+                time_prev = data.time
+                while (data.time - time_prev < 2.0/60.0):
+                    mj.mj_step(model, data)
 
-            if episode % 10 == 0:
+                next_state = get_state(data)
+                reward = calcReward(state=next_state, last_state=state)
+                
+                #print_state(state)
+                replay_buffer.append((old_state.copy(), action, reward, next_state.copy(), isDone)) #replay buffer is in model.py
+                train_dqn()
+                
+                total_reward += reward # reward is set when in mj.mj_step (controller)
+
+                if isDone:
+                    break
+
+                # tell the model it can take another action
+                action_took = False
+
+                if episode % 10 == 0:
+                    render()
+
+                # process pending GUI events, call GLFW callbacks
+                glfw.poll_events()
+
+            print(f'[+] Total reward for episode {episode}: {total_reward}  {agent_status}')
+            rewards.append(total_reward)
+
+            EPSILON = EPSILON * (1-E_DECAY)
+
+        #save model
+        save_model()
+    else:
+        #non-train mode, just run as normal
+        while True:
+            mj.mj_resetData(model, data)
+            reset(data) # set up random start location and such
+
+            isDone = False
+
+            if glfw.window_should_close(window):
+                break
+
+            while not isDone:
+                time_prev = data.time
+                while (data.time - time_prev < 2.0/60.0):
+                    mj.mj_step(model, data)
+
+                if glfw.window_should_close(window):
+                    break
+
+                next_state = get_state(data)
+                calcReward(state=next_state, last_state=state) #to update isDone if needed
+
+                action_took = False
+
                 render()
-
-            # process pending GUI events, call GLFW callbacks
-            glfw.poll_events()
-
-        print(f'[+] Total reward for episode {episode}: {total_reward}  {agent_status}')
-        rewards.append(total_reward)
-
-        EPSILON = EPSILON * (1-E_DECAY)
-
-    #save model
-    save_model()
+                glfw.poll_events()
 
     glfw.terminate()
 
