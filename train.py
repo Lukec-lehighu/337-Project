@@ -129,7 +129,7 @@ def calcReward(state, last_state):
 
     #calculate if is done
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
-        reward -= 300 #punish the model for misbehaving
+        reward -= 5000 #punish the model for misbehaving
         isDone = True
         agent_status = 'Failure'
     else:
