@@ -13,22 +13,21 @@ ENVIRONMENT_PATH = 'environment.xml'
 NUM_EPISODES = 5000
 MAX_STEPS = 700
 
-EPSILON = 0.1
+EPSILON = 0.2
+E_DECAY = 0.05
 
 # for random spawning
 MAX_X = [-0.7,0.7]
 MAX_Y = [-0.7,0.7]
 
-MAX_X = [-0.4,0.4]
-MAX_Y = [-0.4,0.4]
-
-MIN_DISTANCE_FOR_FINISH = 0.01
-TARGET_SPEED_FOR_FINISH = 0.01
+MIN_DISTANCE_FOR_FINISH = 0.02
+TARGET_SPEED_FOR_FINISH = 0.02
 
 MAX_TILT = 15 # max number of degrees that the platform can tilt (prevent runaway values in target rotation)
 
 #for model outputs
-move_speed = 0.05
+move_speed_slow = 0.05 # two different types of move speeds
+move_speed_fast = 0.3
 platform_rot = np.zeros((2,))
 
 # For callback functions
@@ -45,6 +44,9 @@ state = []
 action = []
 loop_num = 0
 
+# for printing nice messages whenever the model succeeds or falls
+agent_status = ''
+
 #for model inputs (where we want the ball to go)
 target_x = 0
 target_y = 0
@@ -57,14 +59,23 @@ def print_state(state):
 
 def get_ctrl_for_pred(action):
     global platform_rot
+
     if action == 0:
-        platform_rot += np.array([move_speed, 0])
+        platform_rot += np.array([move_speed_slow, 0])
     elif action == 1:
-        platform_rot += np.array([-move_speed, 0])
+        platform_rot += np.array([-move_speed_slow, 0])
     elif action == 2:
-        platform_rot += np.array([0, move_speed])
+        platform_rot += np.array([0, move_speed_slow])
     elif action == 3:
-        platform_rot += np.array([0, -move_speed])
+        platform_rot += np.array([0, -move_speed_slow])
+    elif action == 4:
+        platform_rot += np.array([move_speed_fast, 0])
+    elif action == 5:
+        platform_rot += np.array([-move_speed_fast, 0])
+    elif action == 6:
+        platform_rot += np.array([0, move_speed_fast])
+    elif action == 7:
+        platform_rot += np.array([0, -move_speed_fast])
 
     platform_rot = np.clip(platform_rot, -MAX_TILT, MAX_TILT)
 
@@ -74,13 +85,15 @@ def init_controller(model,data):
 
 def reset(data):
     #set random start location for the ball
-    global loop_num, platform_rot
+    global loop_num, platform_rot, agent_status
     data.qpos[2] = np.random.uniform(MAX_X[0], MAX_X[1])
     data.qpos[3] = np.random.uniform(MAX_Y[0], MAX_Y[1])
 
     platform_rot = np.zeros((2,)) # reset platform target rotation
 
     loop_num = 0
+
+    agent_status = ''
 
 def get_state(data):
     '''
@@ -100,13 +113,13 @@ def get_state(data):
     return [ball_x, ball_y, ball_xvel, ball_yvel, floor_rotx, floor_roty]
 
 def calcReward(state, last_state):
-    global isDone
+    global isDone, agent_status
 
     pos = np.array([state[0], state[1]])
     lastpos = np.array([last_state[0], last_state[1]])
     target = np.array([target_x, target_y])
 
-     #calculate reward
+    #calculate reward
     distance_to_target = math.dist(target, pos)
     ball_speed = math.dist([state[2], state[3]], [0,0])
 
@@ -118,12 +131,14 @@ def calcReward(state, last_state):
     if data.qpos[4] < -0.5: # ball height, when it gets below a certain point, it fell off of the platform :(
         reward -= 300 #punish the model for misbehaving
         isDone = True
+        agent_status = 'Failure'
     else:
         reward += 2 # reward staying on the platform
 
     if distance_to_target < MIN_DISTANCE_FOR_FINISH and ball_speed <= TARGET_SPEED_FOR_FINISH:
-        reward += 300
+        reward += 1000
         isDone = True
+        agent_status = 'Success!'
 
     return reward
 
@@ -230,7 +245,7 @@ def render():
     glfw.swap_buffers(window)
 
 def train():
-    global isDone, action_took, action
+    global isDone, action_took, action, agent_status, EPSILON, E_DECAY
 
     #initialize the controller
     init_controller(model,data)
@@ -278,8 +293,10 @@ def train():
             # process pending GUI events, call GLFW callbacks
             glfw.poll_events()
 
-        print(f'[+] Total reward for episode {episode}: {total_reward}')
+        print(f'[+] Total reward for episode {episode}: {total_reward}  {agent_status}')
         rewards.append(total_reward)
+
+        EPSILON = EPSILON * (1-E_DECAY)
 
     #save model
     save_model()

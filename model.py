@@ -12,7 +12,7 @@ MODEL_PATH = 'balance.pt'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 state_dim = 6
-n_actions = 5 # move -x, x, -y, y, or no action
+n_actions = 9 # move slow -x, x, -y, y, move fast -x, x, -y, y, or no action
 
 gamma = 0.99
 alpha = 0.001
