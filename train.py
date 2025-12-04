@@ -8,7 +8,7 @@ import numpy as np
 import math
 import os
 
-TRAIN_MODE = False
+TRAIN_MODE = True
 ENVIRONMENT_PATH = 'environment.xml'
 
 NUM_EPISODES = 5000
