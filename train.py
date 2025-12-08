@@ -11,11 +11,11 @@ import os
 TRAIN_MODE = True
 ENVIRONMENT_PATH = 'environment.xml'
 
-NUM_EPISODES = 5000
+NUM_EPISODES = 600
 MAX_STEPS = 700
 
-EPSILON = 0.2
-E_DECAY = 0.05
+EPSILON = 0.25
+E_DECAY = 0.001
 
 # for random spawning
 MAX_X = [-0.7,0.7]
@@ -335,6 +335,9 @@ def train():
     glfw.terminate()
 
     plt.plot(rewards)
+    plt.title('Total reward / Episode')
+    plt.xlabel('Episode #')
+    plt.ylabel('Total reward')
     plt.show()
 
 # MuJoCo data structures

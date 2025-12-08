@@ -14,7 +14,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 state_dim = 6
 n_actions = 9 # move slow -x, x, -y, y, move fast -x, x, -y, y, or no action
 
-gamma = 0.99
+gamma = 0.80
 alpha = 0.001
 batch_size = 32
 replay_buffer_size = 10000
